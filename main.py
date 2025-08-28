@@ -1,10 +1,13 @@
 from ultralytics import YOLO
 import cv2
+import torch
+from ultralytics.nn.tasks import DetectionModel
 
 import util
 from sort.sort import *
 from util import get_car, read_license_plate, write_csv
 
+torch.serialization.add_safe_globals([DetectionModel])
 
 results = {}
 
@@ -45,19 +48,22 @@ while ret:
 
             # assign license plate to car
             xcar1, ycar1, xcar2, ycar2, car_id = get_car(license_plate, track_ids)
+            print(f"Frame {frame_nmr}: Found license plate bbox {x1, y1, x2, y2} with score {score}")
+            xcar1, ycar1, xcar2, ycar2, car_id = get_car(license_plate, track_ids)
+            print(f" → Matched car_id: {car_id}")
 
             if car_id != -1:
-
+                
                 # crop license plate
                 license_plate_crop = frame[int(y1):int(y2), int(x1): int(x2), :]
-
+                print(f" → Crop shape: {license_plate_crop.shape}")
                 # process license plate
                 license_plate_crop_gray = cv2.cvtColor(license_plate_crop, cv2.COLOR_BGR2GRAY)
                 _, license_plate_crop_thresh = cv2.threshold(license_plate_crop_gray, 64, 255, cv2.THRESH_BINARY_INV)
 
                 # read license plate number
                 license_plate_text, license_plate_text_score = read_license_plate(license_plate_crop_thresh)
-
+                print(f" → OCR result: {license_plate_text}, score: {license_plate_text_score}")
                 if license_plate_text is not None:
                     results[frame_nmr][car_id] = {'car': {'bbox': [xcar1, ycar1, xcar2, ycar2]},
                                                   'license_plate': {'bbox': [x1, y1, x2, y2],

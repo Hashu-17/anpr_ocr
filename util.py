@@ -1,6 +1,6 @@
 import string
 import easyocr
-
+import cv2
 # Initialize the OCR reader
 reader = easyocr.Reader(['en'], gpu=False)
 
@@ -93,9 +93,11 @@ def format_license(text):
     Returns:
         str: Formatted license plate text.
     """
+    
     license_plate_ = ''
     mapping = {0: dict_int_to_char, 1: dict_int_to_char, 4: dict_int_to_char, 5: dict_int_to_char, 6: dict_int_to_char,
                2: dict_char_to_int, 3: dict_char_to_int}
+    '''
     for j in [0, 1, 2, 3, 4, 5, 6]:
         if text[j] in mapping[j].keys():
             license_plate_ += mapping[j][text[j]]
@@ -103,6 +105,21 @@ def format_license(text):
             license_plate_ += text[j]
 
     return license_plate_
+    ''' 
+    # More flexible formatting: convert all possible chars
+    if not text:
+        return ""   # nothing to format
+
+    formatted = ""
+    for j in range(len(text)):
+        if j in mapping:  # make sure mapping has that position
+            if text[j] in mapping[j].keys():
+                formatted += mapping[j][text[j]]
+            else:
+                formatted += text[j]
+        else:
+            formatted += text[j]
+    return formatted
 
 
 def read_license_plate(license_plate_crop):
@@ -116,7 +133,7 @@ def read_license_plate(license_plate_crop):
         tuple: Tuple containing the formatted license plate text and its confidence score.
     """
 
-    detections = reader.readtext(license_plate_crop)
+    """detections = reader.readtext(license_plate_crop)
 
     for detection in detections:
         bbox, text, score = detection
@@ -126,8 +143,51 @@ def read_license_plate(license_plate_crop):
         if license_complies_format(text):
             return format_license(text), score
 
-    return None, None
+    return None, None"""
 
+
+    ''' gray = cv2.cvtColor(license_plate_crop, cv2.COLOR_BGR2GRAY)'''
+    if license_plate_crop is None or license_plate_crop.size == 0:
+        print("⚠️ Empty crop, skipping OCR")
+        gray = None
+    else:
+        if len(license_plate_crop.shape) == 3:
+            # 3 or 4 channel image
+            if license_plate_crop.shape[2] == 3:
+                gray = cv2.cvtColor(license_plate_crop, cv2.COLOR_BGR2GRAY)
+            elif license_plate_crop.shape[2] == 4:
+                gray = cv2.cvtColor(license_plate_crop, cv2.COLOR_BGRA2GRAY)
+            else:
+                print("⚠️ Unexpected channel count:", license_plate_crop.shape)
+                gray = license_plate_crop[..., 0]  # take first channel
+        else:
+            # Already grayscale
+            gray = license_plate_crop
+    ####################################
+    gray = cv2.bilateralFilter(gray, 11, 17, 17)  # noise reduction
+    thresh = cv2.adaptiveThreshold(
+        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY, 35, 11
+    )
+    # --- OCR with EasyOCR ---
+    detections = reader.readtext(thresh)
+
+    best_text, best_score = None, 0
+    for bbox, text, score in detections:
+        text = text.upper().replace(" ", "").strip()
+
+        # Accept plates that are 5–8 chars (more flexible)
+        if 5 <= len(text) <= 8:
+            # Auto-correct common mistakes
+            text = format_license(text) ##bug here
+
+            if score > best_score:
+                best_text, best_score = text, score
+
+    if best_text is not None:
+        return best_text, best_score
+    return None, None
+    
 
 def get_car(license_plate, vehicle_track_ids):
     """
