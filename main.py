@@ -2,7 +2,7 @@ from ultralytics import YOLO
 import cv2
 import torch
 from ultralytics.nn.tasks import DetectionModel
-
+import yt_dlp
 import util
 from sort.sort import *
 from util import get_car, read_license_plate, write_csv
@@ -13,22 +13,39 @@ results = {}
 
 mot_tracker = Sort()
 
-# load models
+'''
+url = "https://youtu.be/QuUxHIVUoaY?si=wJyEmfblig8ApM5o"
+
+ydl_opts = {
+    "format": "best[ext=mp4]",
+    "quiet": True
+}
+
+with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+    info = ydl.extract_info(url, download=False)
+    stream_url = info["url"]
+'''
+
 coco_model = YOLO('yolov8n.pt')
 license_plate_detector = YOLO('license_plate_detector.pt')
 
-# load video
-cap = cv2.VideoCapture('./sample.mp4')
+
+cap = cv2.VideoCapture('videoplayback.mp4')
 
 vehicles = [2, 3, 5, 7]
 
 # read frames
 frame_nmr = -1
 ret = True
+frame_count =0 
+frame_skip=5
 while ret:
     frame_nmr += 1
     ret, frame = cap.read()
+    
     if ret:
+        if frame_nmr % frame_skip !=0:
+            continue
         results[frame_nmr] = {}
         # detect vehicles
         detections = coco_model(frame)[0]
@@ -63,8 +80,9 @@ while ret:
 
                 # read license plate number
                 license_plate_text, license_plate_text_score = read_license_plate(license_plate_crop_thresh)
-                print(f" → OCR result: {license_plate_text}, score: {license_plate_text_score}")
+                
                 if license_plate_text is not None:
+                    print(f" → OCR result: {license_plate_text}, score: {license_plate_text_score}")
                     results[frame_nmr][car_id] = {'car': {'bbox': [xcar1, ycar1, xcar2, ycar2]},
                                                   'license_plate': {'bbox': [x1, y1, x2, y2],
                                                                     'text': license_plate_text,

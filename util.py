@@ -120,7 +120,7 @@ def format_license(text):
         else:
             formatted += text[j]
     return formatted
-
+  
 
 def read_license_plate(license_plate_crop):
     """
@@ -133,8 +133,8 @@ def read_license_plate(license_plate_crop):
         tuple: Tuple containing the formatted license plate text and its confidence score.
     """
 
-    """detections = reader.readtext(license_plate_crop)
-
+    detections = reader.readtext(license_plate_crop)
+    
     for detection in detections:
         bbox, text, score = detection
 
@@ -143,10 +143,11 @@ def read_license_plate(license_plate_crop):
         if license_complies_format(text):
             return format_license(text), score
 
-    return None, None"""
-
-
-    ''' gray = cv2.cvtColor(license_plate_crop, cv2.COLOR_BGR2GRAY)'''
+    return None, None
+    
+    '''
+    gray = cv2.cvtColor(license_plate_crop, cv2.COLOR_BGR2GRAY)
+    
     if license_plate_crop is None or license_plate_crop.size == 0:
         print("⚠️ Empty crop, skipping OCR")
         gray = None
@@ -163,7 +164,8 @@ def read_license_plate(license_plate_crop):
         else:
             # Already grayscale
             gray = license_plate_crop
-    ####################################
+    
+    
     gray = cv2.bilateralFilter(gray, 11, 17, 17)  # noise reduction
     thresh = cv2.adaptiveThreshold(
         gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
@@ -175,19 +177,19 @@ def read_license_plate(license_plate_crop):
     best_text, best_score = None, 0
     for bbox, text, score in detections:
         text = text.upper().replace(" ", "").strip()
-
-        # Accept plates that are 5–8 chars (more flexible)
+        print("Raw OCR:",text,"Score",score)
+          # Accept plates that are 5–8 chars (more flexible)
         if 5 <= len(text) <= 8:
             # Auto-correct common mistakes
             text = format_license(text) ##bug here
 
             if score > best_score:
                 best_text, best_score = text, score
-
+    
     if best_text is not None:
         return best_text, best_score
     return None, None
-    
+    '''
 
 def get_car(license_plate, vehicle_track_ids):
     """
